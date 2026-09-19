@@ -763,20 +763,22 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
           </g>
           <circle cx="50" cy="50" r="5.5" fill="#2E2A22" />
         </svg>
-        <div>
+        <div className="header-copy">
           <h1>Venture 1</h1>
           <p>Every question is an adventure</p>
         </div>
-        <div className="meter-wrap">
-          <div className="meter-label">Explorer</div>
-          <div className="meter">
-            <div className="meter-fill" style={meterStyle} />
+        <div className="header-meters">
+          <div className="meter-wrap">
+            <div className="meter-label">Explorer</div>
+            <div className="meter">
+              <div className="meter-fill" style={meterStyle} />
+            </div>
           </div>
-        </div>
-        <div className="xp-wrap">
-          <div className="xp-label">Lvl {levelInfo.level}</div>
-          <div className="meter">
-            <div className="meter-fill" style={xpStyle} />
+          <div className="xp-wrap">
+            <div className="xp-label">Lvl {levelInfo.level}</div>
+            <div className="meter">
+              <div className="meter-fill" style={xpStyle} />
+            </div>
           </div>
         </div>
         {canSpeak ? (
@@ -797,310 +799,316 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
         ) : null}
       </div>
 
-      <div className="stats-row">
-        <div className="stat-chip">
-          🔥 Streak <strong>{progress.streak}d</strong>
-        </div>
-        <div className="stat-chip">
-          ⭐ XP <strong>{progress.xp}</strong>
-        </div>
-        <div className="stat-chip">
-          ❓ Asked <strong>{progress.questionsAsked}</strong>
-        </div>
-        <div className="stat-chip">
-          🎯 Quizzes <strong>{progress.quizzesCompleted}</strong>
-        </div>
-      </div>
-
-      <div className="toolbar">
-        <select
-          className="age-select"
-          value={ageBand}
-          onChange={(e) => setAgeBand(e.target.value as AgeBand)}
-          aria-label="Age band"
-        >
-          {(Object.keys(AGE_BANDS) as AgeBand[]).map((k) => (
-            <option key={k} value={k}>
-              {AGE_BANDS[k].label} ({AGE_BANDS[k].ages})
-            </option>
-          ))}
-        </select>
-        <select
-          className="topic-select"
-          value={quizTopic}
-          onChange={(e) => setQuizTopic(e.target.value)}
-          aria-label="Quiz topic"
-        >
-          {QUIZ_TOPICS.map((t) => (
-            <option key={t.id} value={t.id}>
-              Quiz: {t.label}
-            </option>
-          ))}
-        </select>
-        <button type="button" className="tool-btn" onClick={() => setShowParent(true)}>
-          👪 Parent report
-        </button>
-        <button type="button" className="tool-btn" onClick={newQuestionMode} disabled={busy}>
-          🆕 New question
-        </button>
-        <button type="button" className="tool-btn" onClick={clearChat} disabled={busy}>
-          🧹 Clear
-        </button>
-      </div>
-
-      <div className="hint-ladder" aria-label="Hint ladder">
-        <div className="hint-ladder-top">
-          <span>Hint ladder · Stage {attemptLevel}/5</span>
-          <span>{activeQuestion ? "Same question thread" : "Ask something to begin"}</span>
-        </div>
-        <div className="hint-steps">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <div key={n} className={`hint-step${attemptLevel >= n ? " on" : ""}`} />
-          ))}
-        </div>
-      </div>
-
-      <div className="daily-card">
-        <h3>⭐ Today&apos;s challenge</h3>
-        <p>
-          {daily.prompt}
-          {dailyDone ? " — completed!" : " — earn bonus XP"}
-        </p>
-        <button
-          type="button"
-          className="tool-btn primary"
-          disabled={busy || dailyDone}
-          onClick={() => {
-            setActiveQuestion(null);
-            setAttemptLevel(1);
-            void sendMessage(daily.prompt);
-          }}
-        >
-          {dailyDone ? "Done for today" : "Start challenge"}
-        </button>
-      </div>
-
-      <div className="adventure-card">
-        <h3>🗺️ Guided adventures</h3>
-        <p>Multi-step quests that teach through questions.</p>
-        <div className="toolbar">
-          {ADVENTURES.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              className="tool-btn"
-              disabled={busy}
-              onClick={() => startAdventure(a.id)}
-            >
-              {a.emoji} {a.title}
-            </button>
-          ))}
-          {adventureId ? (
-            <button type="button" className="tool-btn primary" disabled={busy} onClick={nextAdventureStep}>
-              Next adventure step →
-            </button>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="passport" id="passport">
-        <span className="passport-label">🎒 Passport</span>
-        {CATEGORIES.map((cat) => {
-          const earned = earnedBadges.has(cat.id);
-          const pop = popBadges.has(cat.id);
-          return (
-            <div
-              key={cat.id}
-              className={`badge${earned ? " earned" : ""}${pop ? " pop" : ""}`}
-              title={earned ? `${cat.label} — earned!` : `${cat.label} — not yet discovered`}
-            >
-              {cat.emoji}
+      <div className="layout">
+        <aside className="sidebar">
+          <div className="stats-row">
+            <div className="stat-chip">
+              🔥 Streak <strong>{progress.streak}d</strong>
             </div>
-          );
-        })}
-      </div>
-
-      <button type="button" className="quiz-btn" disabled={busy} onClick={() => void startQuiz()}>
-        🎯 Quiz Me!
-      </button>
-
-      <div className="chat" ref={chatRef} role="log" aria-live="polite">
-        {items.map((item) => {
-          if (item.kind === "toast") {
-            return (
-              <div key={item.id} className="badge-toast">
-                {item.content}
-              </div>
-            );
-          }
-          if (item.kind === "typing") {
-            return (
-              <div key={item.id} className="row bot">
-                <div className="avatar">🧭</div>
-                <div className="bubble typing">
-                  <div className="dot" />
-                  <div className="dot" />
-                  <div className="dot" />
-                </div>
-              </div>
-            );
-          }
-          if (item.kind === "quiz") {
-            if (item.finished) {
-              return (
-                <div key={item.id} className="quiz-card">
-                  <div className="quiz-question">
-                    🏁 You scored {item.score} out of {item.questions.length}!
-                  </div>
-                  <div className="quiz-explanation">
-                    {item.score === item.questions.length
-                      ? "Amazing work, true explorer! You got every question right."
-                      : "Nice thinking! Every question you try makes you a sharper explorer."}
-                  </div>
-                  <button
-                    type="button"
-                    className="quiz-next"
-                    onClick={() => {
-                      setItems((prev) => prev.filter((i) => i.id !== item.id));
-                      void startQuiz();
-                    }}
-                  >
-                    🎯 Take another quiz
-                  </button>
-                </div>
-              );
-            }
-            const q = item.questions[item.current];
-            return (
-              <div key={item.id} className="quiz-card">
-                <div className="quiz-progress">
-                  Question {item.current + 1} of {item.questions.length}
-                </div>
-                <div className="quiz-question">{q.question}</div>
-                <div className="quiz-options">
-                  {q.options.map((opt, i) => {
-                    let cls = "quiz-option";
-                    if (item.revealed) {
-                      if (i === q.correctIndex) cls += " correct";
-                      else if (i === item.selected) cls += " incorrect";
-                    }
-                    return (
-                      <button
-                        key={`${item.id}-${i}`}
-                        type="button"
-                        className={cls}
-                        disabled={item.revealed}
-                        onClick={() => onQuizSelect(item.id, i)}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
-                </div>
-                {item.revealed ? (
-                  <>
-                    <div className="quiz-explanation">
-                      {(item.selected === q.correctIndex ? "✅ Yes! " : "Not quite — ") +
-                        q.explanation}
-                    </div>
-                    <button type="button" className="quiz-next" onClick={() => onQuizNext(item.id)}>
-                      {item.current === item.questions.length - 1
-                        ? "See my score"
-                        : "Next question →"}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            );
-          }
-
-          if (!item.content && item.role === "assistant") {
-            return (
-              <div key={item.id} className="row bot">
-                <div className="avatar">🧭</div>
-                <div className="bubble typing">
-                  <div className="dot" />
-                  <div className="dot" />
-                  <div className="dot" />
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div key={item.id} className={`row ${item.role === "user" ? "user" : "bot"}`}>
-              <div className="avatar">{item.role === "user" ? "🙂" : "🧭"}</div>
-              {item.html ? (
-                <div className="bubble">
-                  I can&apos;t draw pictures on this plan yet! Ask a parent or guardian to upgrade
-                  your membership at{" "}
-                  <a
-                    className="upgrade-link"
-                    href="https://kiddo-create-lab.lovable.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    kiddo-create-lab.lovable.app
-                  </a>{" "}
-                  to unlock image creation.
-                </div>
-              ) : (
-                <div className="bubble">{item.content}</div>
-              )}
+            <div className="stat-chip">
+              ⭐ XP <strong>{progress.xp}</strong>
             </div>
-          );
-        })}
-      </div>
+            <div className="stat-chip">
+              ❓ Asked <strong>{progress.questionsAsked}</strong>
+            </div>
+            <div className="stat-chip">
+              🎯 Quizzes <strong>{progress.quizzesCompleted}</strong>
+            </div>
+          </div>
 
-      {showStarters ? (
-        <div className="starter-row">
-          {STARTERS.map((s) => (
+          <div className="toolbar">
+            <select
+              className="age-select"
+              value={ageBand}
+              onChange={(e) => setAgeBand(e.target.value as AgeBand)}
+              aria-label="Age band"
+            >
+              {(Object.keys(AGE_BANDS) as AgeBand[]).map((k) => (
+                <option key={k} value={k}>
+                  {AGE_BANDS[k].label} ({AGE_BANDS[k].ages})
+                </option>
+              ))}
+            </select>
+            <select
+              className="topic-select"
+              value={quizTopic}
+              onChange={(e) => setQuizTopic(e.target.value)}
+              aria-label="Quiz topic"
+            >
+              {QUIZ_TOPICS.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Quiz: {t.label}
+                </option>
+              ))}
+            </select>
+            <button type="button" className="tool-btn" onClick={() => setShowParent(true)}>
+              👪 Parent report
+            </button>
+            <button type="button" className="tool-btn" onClick={newQuestionMode} disabled={busy}>
+              🆕 New question
+            </button>
+            <button type="button" className="tool-btn" onClick={clearChat} disabled={busy}>
+              🧹 Clear
+            </button>
+          </div>
+
+          <div className="daily-card">
+            <h3>⭐ Today&apos;s challenge</h3>
+            <p>
+              {daily.prompt}
+              {dailyDone ? " — completed!" : " — earn bonus XP"}
+            </p>
             <button
-              key={s}
               type="button"
-              className="starter"
-              disabled={busy}
+              className="tool-btn primary"
+              disabled={busy || dailyDone}
               onClick={() => {
                 setActiveQuestion(null);
                 setAttemptLevel(1);
-                void sendMessage(s);
+                void sendMessage(daily.prompt);
               }}
             >
-              {s}
+              {dailyDone ? "Done for today" : "Start challenge"}
             </button>
-          ))}
-        </div>
-      ) : null}
+          </div>
 
-      <form className="inputbar" onSubmit={onSubmit}>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="What do you want to explore today?"
-          maxLength={300}
-          disabled={busy}
-          autoComplete="off"
-        />
-        {canListen ? (
-          <button
-            type="button"
-            className={`mic-btn${listening ? " listening" : ""}`}
-            aria-label="Speak your question"
-            title="Speak your question"
-            disabled={busy}
-            onClick={toggleMic}
-          >
-            🎤
+          <div className="adventure-card">
+            <h3>🗺️ Guided adventures</h3>
+            <p>Multi-step quests that teach through questions.</p>
+            <div className="toolbar">
+              {ADVENTURES.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="tool-btn"
+                  disabled={busy}
+                  onClick={() => startAdventure(a.id)}
+                >
+                  {a.emoji} {a.title}
+                </button>
+              ))}
+              {adventureId ? (
+                <button type="button" className="tool-btn primary" disabled={busy} onClick={nextAdventureStep}>
+                  Next adventure step →
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="passport" id="passport">
+            <span className="passport-label">🎒 Passport</span>
+            {CATEGORIES.map((cat) => {
+              const earned = earnedBadges.has(cat.id);
+              const pop = popBadges.has(cat.id);
+              return (
+                <div
+                  key={cat.id}
+                  className={`badge${earned ? " earned" : ""}${pop ? " pop" : ""}`}
+                  title={earned ? `${cat.label} — earned!` : `${cat.label} — not yet discovered`}
+                >
+                  {cat.emoji}
+                </div>
+              );
+            })}
+          </div>
+
+          <button type="button" className="quiz-btn" disabled={busy} onClick={() => void startQuiz()}>
+            🎯 Quiz Me!
           </button>
-        ) : null}
-        <button type="submit" className="send-btn" aria-label="Send" disabled={busy || !input.trim()}>
-          ➤
-        </button>
-      </form>
-      <div className="voice-status">{voiceStatus}</div>
-      <div className="footnote">
-        Venture 1 asks questions to help you think — it won&apos;t just hand you the answer!
+        </aside>
+
+        <section className="main-pane">
+          <div className="hint-ladder" aria-label="Hint ladder">
+            <div className="hint-ladder-top">
+              <span>Hint ladder · Stage {attemptLevel}/5</span>
+              <span>{activeQuestion ? "Same question thread" : "Ask something to begin"}</span>
+            </div>
+            <div className="hint-steps">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <div key={n} className={`hint-step${attemptLevel >= n ? " on" : ""}`} />
+              ))}
+            </div>
+          </div>
+
+          <div className="chat" ref={chatRef} role="log" aria-live="polite">
+            {items.map((item) => {
+              if (item.kind === "toast") {
+                return (
+                  <div key={item.id} className="badge-toast">
+                    {item.content}
+                  </div>
+                );
+              }
+              if (item.kind === "typing") {
+                return (
+                  <div key={item.id} className="row bot">
+                    <div className="avatar">🧭</div>
+                    <div className="bubble typing">
+                      <div className="dot" />
+                      <div className="dot" />
+                      <div className="dot" />
+                    </div>
+                  </div>
+                );
+              }
+              if (item.kind === "quiz") {
+                if (item.finished) {
+                  return (
+                    <div key={item.id} className="quiz-card">
+                      <div className="quiz-question">
+                        🏁 You scored {item.score} out of {item.questions.length}!
+                      </div>
+                      <div className="quiz-explanation">
+                        {item.score === item.questions.length
+                          ? "Amazing work, true explorer! You got every question right."
+                          : "Nice thinking! Every question you try makes you a sharper explorer."}
+                      </div>
+                      <button
+                        type="button"
+                        className="quiz-next"
+                        onClick={() => {
+                          setItems((prev) => prev.filter((i) => i.id !== item.id));
+                          void startQuiz();
+                        }}
+                      >
+                        🎯 Take another quiz
+                      </button>
+                    </div>
+                  );
+                }
+                const q = item.questions[item.current];
+                return (
+                  <div key={item.id} className="quiz-card">
+                    <div className="quiz-progress">
+                      Question {item.current + 1} of {item.questions.length}
+                    </div>
+                    <div className="quiz-question">{q.question}</div>
+                    <div className="quiz-options">
+                      {q.options.map((opt, i) => {
+                        let cls = "quiz-option";
+                        if (item.revealed) {
+                          if (i === q.correctIndex) cls += " correct";
+                          else if (i === item.selected) cls += " incorrect";
+                        }
+                        return (
+                          <button
+                            key={`${item.id}-${i}`}
+                            type="button"
+                            className={cls}
+                            disabled={item.revealed}
+                            onClick={() => onQuizSelect(item.id, i)}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {item.revealed ? (
+                      <>
+                        <div className="quiz-explanation">
+                          {(item.selected === q.correctIndex ? "✅ Yes! " : "Not quite — ") +
+                            q.explanation}
+                        </div>
+                        <button type="button" className="quiz-next" onClick={() => onQuizNext(item.id)}>
+                          {item.current === item.questions.length - 1
+                            ? "See my score"
+                            : "Next question →"}
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              if (!item.content && item.role === "assistant") {
+                return (
+                  <div key={item.id} className="row bot">
+                    <div className="avatar">🧭</div>
+                    <div className="bubble typing">
+                      <div className="dot" />
+                      <div className="dot" />
+                      <div className="dot" />
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={item.id} className={`row ${item.role === "user" ? "user" : "bot"}`}>
+                  <div className="avatar">{item.role === "user" ? "🙂" : "🧭"}</div>
+                  {item.html ? (
+                    <div className="bubble">
+                      I can&apos;t draw pictures on this plan yet! Ask a parent or guardian to upgrade
+                      your membership at{" "}
+                      <a
+                        className="upgrade-link"
+                        href="https://kiddo-create-lab.lovable.app/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        kiddo-create-lab.lovable.app
+                      </a>{" "}
+                      to unlock image creation.
+                    </div>
+                  ) : (
+                    <div className="bubble">{item.content}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {showStarters ? (
+            <div className="starter-row">
+              {STARTERS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className="starter"
+                  disabled={busy}
+                  onClick={() => {
+                    setActiveQuestion(null);
+                    setAttemptLevel(1);
+                    void sendMessage(s);
+                  }}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
+          <form className="inputbar" onSubmit={onSubmit}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="What do you want to explore today?"
+              maxLength={300}
+              disabled={busy}
+              autoComplete="off"
+            />
+            {canListen ? (
+              <button
+                type="button"
+                className={`mic-btn${listening ? " listening" : ""}`}
+                aria-label="Speak your question"
+                title="Speak your question"
+                disabled={busy}
+                onClick={toggleMic}
+              >
+                🎤
+              </button>
+            ) : null}
+            <button type="submit" className="send-btn" aria-label="Send" disabled={busy || !input.trim()}>
+              ➤
+            </button>
+          </form>
+          <div className="voice-status">{voiceStatus}</div>
+          <div className="footnote">
+            Venture 1 asks questions to help you think — it won&apos;t just hand you the answer!
+          </div>
+        </section>
       </div>
 
       {showParent ? (
