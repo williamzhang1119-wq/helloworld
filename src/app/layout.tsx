@@ -16,7 +16,8 @@ const body = Nunito({
 
 export const metadata: Metadata = {
   title: "Venture 1",
-  description: "Every question is an adventure — a kid-safe tutor that guides with hints.",
+  description:
+    "Every question is an adventure — a kid-safe tutor with wide knowledge, clear explanations, and a hint ladder for practice.",
 };
 
 export default function RootLayout({

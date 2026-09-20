@@ -441,6 +441,7 @@ body {
   border: 2.5px dashed var(--sun-deep);
   border-radius: 18px;
   overflow-x: auto;
+  flex-wrap: wrap;
 }
 
 .passport-label {

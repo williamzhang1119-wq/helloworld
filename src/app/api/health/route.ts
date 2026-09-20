@@ -5,7 +5,7 @@ export function GET() {
   return NextResponse.json({
     ok: true,
     service: "venture-1",
-    version: "2.0.0",
+    version: "2.1.0",
     demoMode: isDemoMode(),
     features: [
       "age-bands",
@@ -17,6 +17,9 @@ export function GET() {
       "daily-challenge",
       "parent-report",
       "xp-streaks",
+      "knowledge-grounding",
+      "wide-subjects",
+      "conversation-memory",
     ],
   });
 }

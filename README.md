@@ -1,11 +1,20 @@
 # Venture 1 — advanced kid-safe AI tutor
 
-Every question is an adventure. Venture 1 guides kids with a **hint ladder** (not spoilers), age-banded tutoring, XP/streaks, guided adventures, quizzes, and a parent report.
+Every question is an adventure. Venture 1 is a **wide-knowledge, kid-safe tutor**: clear explanations, conversation memory, age-banded wording, a **hint ladder** for practice problems, XP/streaks, guided adventures, quizzes, and a parent report.
 
-## What's new in v2
+## What's new in v2.1
 
-- Age bands: Little Explorer / Explorer / Teen Explorer
-- Hint ladder stages 1–5 (adaptive tutoring depth)
+- Smarter chat: stronger reasoning, clearer explanations, and follow-ups that use the whole conversation
+- Wider subject map (science, nature, history, geography, math, languages, arts, music, sports, tech, school, hobbies, how things work, culture)
+- Age bands change **depth and wording**, not which topics are allowed
+- Knowledge grounding notes so answers stay factual; the tutor admits uncertainty instead of inventing
+- Server-side model defaults (`ANTHROPIC_MODEL` / `OPENAI_MODEL`) — the browser no longer picks a model id
+- Richer demo mode when no API key is set (grounded replies + broader quizzes)
+
+## Age bands (v2)
+
+- Little Explorer / Explorer / Teen Explorer
+- Hint ladder stages 1–5 (for practice / homework-style problems)
 - Streaming replies
 - XP, levels, and daily streaks
 - Daily challenge + guided multi-step adventures
@@ -24,13 +33,20 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-Without an API key, demo mode still works (including staged hints + quizzes).
+Without an API key, demo mode still works (including grounded explanations, staged math hints, and quizzes).
+
+```bash
+npm test
+npm run build
+```
 
 ## Deploy on Railway
 
 1. New Project → Deploy from GitHub → this repo
 2. Variables:
    - `ANTHROPIC_API_KEY` (preferred)
+   - `ANTHROPIC_MODEL` (optional; default `claude-sonnet-4-6`)
    - or `OPENAI_API_KEY` (also enables moderation + true token streaming)
+   - `OPENAI_MODEL` (optional; default `gpt-4o-mini`)
 3. Enable public networking
 4. Health: `GET /api/health` → should list `"features"` and `demoMode`
