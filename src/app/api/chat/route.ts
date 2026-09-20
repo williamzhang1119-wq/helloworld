@@ -2,10 +2,18 @@ import { NextResponse } from "next/server";
 import { generateReply, streamReply, type ChatTurn } from "@/lib/openai";
 import {
   REFUSAL_MESSAGE,
+  QUIZ_SAFETY_PREAMBLE,
   buildSystemPrompt,
   type AgeBand,
 } from "@/lib/prompts";
 import { moderateWithOpenAI, redactPii, sanitizeUserMessage } from "@/lib/safety";
+import {
+  classifyQuestion,
+  inferTopicLabel,
+  isFollowUp,
+  recapConversation,
+} from "@/lib/conversation";
+import { formatGroundingNotes, retrieveKnowledge, topicLabelsFromHits } from "@/lib/knowledge";
 
 export const runtime = "nodejs";
 
@@ -23,6 +31,7 @@ type Body = {
 };
 
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const HISTORY_LIMIT = 24;
 
 function clientKey(req: Request): string {
   return (
@@ -58,6 +67,21 @@ function parseAgeBand(v: unknown): AgeBand | undefined {
   return undefined;
 }
 
+function clipTurns(turns: ChatTurn[], limit = HISTORY_LIMIT): ChatTurn[] {
+  return turns
+    .filter(
+      (m): m is ChatTurn =>
+        !!m &&
+        (m.role === "user" || m.role === "assistant") &&
+        typeof m.content === "string",
+    )
+    .slice(-limit)
+    .map((m) => ({
+      role: m.role,
+      content: redactPii(m.content).slice(0, 2000),
+    }));
+}
+
 export async function POST(req: Request) {
   if (!allowRequest(clientKey(req))) {
     return NextResponse.json(
@@ -78,28 +102,10 @@ export async function POST(req: Request) {
     typeof body.attemptLevel === "number"
       ? Math.max(1, Math.min(5, Math.floor(body.attemptLevel)))
       : 1;
-  const topicFocus =
-    typeof body.topicFocus === "string" ? body.topicFocus.slice(0, 80) : undefined;
-
-  const system =
-    typeof body.system === "string" && body.system.trim()
-      ? body.system.slice(0, 12000)
-      : buildSystemPrompt({ ageBand, attemptLevel, topicFocus });
 
   let messages: ChatTurn[] = [];
   if (Array.isArray(body.messages) && body.messages.length) {
-    messages = body.messages
-      .filter(
-        (m): m is ChatTurn =>
-          !!m &&
-          (m.role === "user" || m.role === "assistant") &&
-          typeof m.content === "string",
-      )
-      .slice(-16)
-      .map((m) => ({
-        role: m.role,
-        content: redactPii(m.content).slice(0, 2000),
-      }));
+    messages = clipTurns(body.messages);
   } else {
     const sanitized = sanitizeUserMessage(body.message ?? "");
     if (!sanitized.ok) {
@@ -116,20 +122,7 @@ export async function POST(req: Request) {
       }
       return NextResponse.json({ error: "Please type a message." }, { status: 400 });
     }
-    const history = Array.isArray(body.history)
-      ? body.history
-          .filter(
-            (m): m is ChatTurn =>
-              !!m &&
-              (m.role === "user" || m.role === "assistant") &&
-              typeof m.content === "string",
-          )
-          .slice(-8)
-          .map((m) => ({
-            role: m.role,
-            content: redactPii(m.content).slice(0, 800),
-          }))
-      : [];
+    const history = Array.isArray(body.history) ? clipTurns(body.history, 16) : [];
     messages = [...history, { role: "user", content: redactPii(sanitized.text) }];
   }
 
@@ -138,6 +131,8 @@ export async function POST(req: Request) {
   }
 
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  const prevUser = [...messages].reverse().filter((m) => m.role === "user")[1];
+  const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
   if (lastUser) {
     const check = sanitizeUserMessage(lastUser.content.slice(0, 800));
     if (!check.ok && check.reason === "blocked") {
@@ -157,6 +152,49 @@ export async function POST(req: Request) {
     }
   }
 
+  const userText = lastUser?.content || "";
+  const followup = isFollowUp(userText, prevUser?.content, lastAssistant?.content);
+  const questionKind = followup ? "followup" : classifyQuestion(userText);
+  const hits = retrieveKnowledge(
+    userText,
+    `${prevUser?.content || ""} ${lastAssistant?.content || ""}`,
+    3,
+  );
+  const groundingNotes = formatGroundingNotes(hits, ageBand || "explorer");
+  const inferredTopic =
+    (typeof body.topicFocus === "string" && body.topicFocus.trim()
+      ? body.topicFocus.slice(0, 80)
+      : undefined) ||
+    topicLabelsFromHits(hits)[0] ||
+    inferTopicLabel(userText);
+  const conversationRecap = recapConversation(messages, 8);
+
+  const customSystem =
+    typeof body.system === "string" && body.system.trim() ? body.system.slice(0, 12000) : "";
+  const isQuizPrompt = /quiz/i.test(customSystem);
+  const system = isQuizPrompt
+    ? `${QUIZ_SAFETY_PREAMBLE}\nAge band: ${ageBand || "explorer"}.\n${customSystem}`
+    : buildSystemPrompt({
+        ageBand,
+        attemptLevel,
+        topicFocus: inferredTopic,
+        questionKind,
+        groundingNotes,
+        conversationRecap,
+      });
+
+  const genOptions = {
+    system,
+    messages,
+    maxTokens: typeof body.max_tokens === "number" ? body.max_tokens : 1600,
+    ageBand,
+    attemptLevel,
+    topicFocus: inferredTopic,
+    questionKind,
+    groundingNotes,
+    conversationRecap,
+  };
+
   const wantStream =
     body.stream === true || req.headers.get("accept")?.includes("text/event-stream");
 
@@ -168,18 +206,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
         };
         try {
-          const result = await streamReply(
-            {
-              system,
-              messages,
-              maxTokens: typeof body.max_tokens === "number" ? body.max_tokens : 1200,
-              model: typeof body.model === "string" ? body.model : undefined,
-              ageBand,
-              attemptLevel,
-              topicFocus,
-            },
-            (delta) => send({ type: "delta", text: delta }),
-          );
+          const result = await streamReply(genOptions, (delta) => send({ type: "delta", text: delta }));
           if (openaiKey && !result.demo) {
             const outMod = await moderateWithOpenAI(result.text, openaiKey);
             if (outMod.flagged) {
@@ -195,6 +222,7 @@ export async function POST(req: Request) {
             demo: result.demo,
             provider: result.provider,
             attemptLevel,
+            questionKind,
           });
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
@@ -216,15 +244,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await generateReply({
-      system,
-      messages,
-      maxTokens: typeof body.max_tokens === "number" ? body.max_tokens : 1200,
-      model: typeof body.model === "string" ? body.model : undefined,
-      ageBand,
-      attemptLevel,
-      topicFocus,
-    });
+    const result = await generateReply(genOptions);
 
     if (openaiKey && !result.demo) {
       const outMod = await moderateWithOpenAI(result.text, openaiKey);
@@ -241,6 +261,7 @@ export async function POST(req: Request) {
         demo: result.demo,
         provider: result.provider,
         attemptLevel,
+        questionKind,
       }),
     );
   } catch (err) {

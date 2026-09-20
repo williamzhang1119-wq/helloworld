@@ -14,6 +14,7 @@ import {
   dailyChallengeForToday,
   type AgeBand,
 } from "@/lib/prompts";
+import { shouldResetHintLadder } from "@/lib/conversation";
 import {
   addTopic,
   defaultProgress,
@@ -55,13 +56,13 @@ const CATEGORIES = [
     id: "science",
     emoji: "🔬",
     label: "Science Explorer",
-    keywords: ["science", "atom", "chemistry", "physics", "biology", "experiment", "gravity", "molecule", "element", "sky", "rainbow"],
+    keywords: ["science", "atom", "chemistry", "physics", "biology", "experiment", "gravity", "molecule", "element", "sky", "rainbow", "season"],
   },
   {
     id: "nature",
     emoji: "🌿",
     label: "Nature Explorer",
-    keywords: ["animal", "plant", "ocean", "ecosystem", "forest", "dinosaur", "insect", "species", "habitat"],
+    keywords: ["animal", "plant", "ocean", "ecosystem", "forest", "dinosaur", "insect", "species", "habitat", "bee"],
   },
   {
     id: "space",
@@ -73,7 +74,13 @@ const CATEGORIES = [
     id: "history",
     emoji: "📜",
     label: "History Explorer",
-    keywords: ["history", "ancient", "war", "king", "queen", "civilization", "egypt", "castle", "empire"],
+    keywords: ["history", "ancient", "pyramid", "pharaoh", "civilization", "egypt", "castle", "empire", "rome", "printing"],
+  },
+  {
+    id: "geography",
+    emoji: "🗺️",
+    label: "Map Explorer",
+    keywords: ["continent", "equator", "map", "country", "river", "mountain", "desert", "geography", "atlas"],
   },
   {
     id: "math",
@@ -82,10 +89,28 @@ const CATEGORIES = [
     keywords: ["math", "number", "multiply", "divide", "equation", "fraction", "geometry", "plus", "minus"],
   },
   {
+    id: "languages",
+    emoji: "🗣️",
+    label: "Language Explorer",
+    keywords: ["language", "spanish", "french", "hola", "bonjour", "alphabet", "grammar", "translate", "word"],
+  },
+  {
     id: "arts",
     emoji: "🎨",
     label: "Arts Explorer",
-    keywords: ["art", "music", "paint", "draw", "song", "instrument", "color", "dance", "sculpture"],
+    keywords: ["art", "paint", "draw", "color", "dance", "sculpture", "perspective", "museum"],
+  },
+  {
+    id: "music",
+    emoji: "🎵",
+    label: "Music Explorer",
+    keywords: ["music", "song", "piano", "guitar", "rhythm", "instrument", "beat", "melody"],
+  },
+  {
+    id: "sports",
+    emoji: "⚽",
+    label: "Sports Explorer",
+    keywords: ["sport", "soccer", "football", "basketball", "olympics", "athlete", "team"],
   },
   {
     id: "tech",
@@ -94,27 +119,38 @@ const CATEGORIES = [
     keywords: ["computer", "internet", "code", "coding", "robot", "technology", "app", "wifi", "software"],
   },
   {
-    id: "big",
-    emoji: "🤔",
-    label: "Big-Question Explorer",
-    keywords: ["why do we", "feelings", "fair", "exist", "dream", "happy", "sad", "meaning", "alive", "money"],
+    id: "culture",
+    emoji: "🌍",
+    label: "Culture Explorer",
+    keywords: ["festival", "holiday", "tradition", "culture", "food", "money"],
   },
 ] as const;
 
 const STARTERS = [
   "Why is the sky blue?",
-  "What's 12 x 8?",
-  "How do computers think?",
+  "How do airplanes fly?",
+  "What is the equator?",
   "Why did dinosaurs go extinct?",
-  "How does money work?",
-  "Why do we dream?",
+  "How do you say hello in Spanish?",
+  "What's 12 x 8?",
+  "What is rhythm in music?",
+  "How do computers think?",
 ];
 
 const QUIZ_TOPICS = [
   { id: "mixed", label: "Mixed" },
   { id: "science", label: "Science" },
+  { id: "nature", label: "Nature" },
   { id: "space", label: "Space" },
+  { id: "history", label: "History" },
+  { id: "geography", label: "Geography" },
   { id: "math", label: "Math" },
+  { id: "languages", label: "Languages" },
+  { id: "arts", label: "Arts" },
+  { id: "music", label: "Music" },
+  { id: "sports", label: "Sports" },
+  { id: "tech", label: "Tech" },
+  { id: "culture", label: "Culture" },
 ];
 
 const STORAGE_BADGES = "venture1-badges";
@@ -173,7 +209,7 @@ export function VentureApp() {
       id: "welcome",
       role: "assistant",
       content:
-        "Hi there! I'm Venture 1 🧭 Pick your explorer level, take today's challenge, or ask anything — I'll guide you with hints, not spoilers!",
+        "Hi there! I'm Venture 1 🧭 Science, nature, maps, history, math, languages, arts, music, sports, tech, hobbies, and how things work — ask away. Your explorer level changes how I explain, not what we can explore.",
     },
   ]);
   const [history, setHistory] = useState<ChatTurn[]>([]);
@@ -319,8 +355,7 @@ export function VentureApp() {
         Accept: "text/event-stream",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1200,
+        max_tokens: 1600,
         system: payload.system,
         messages: payload.messages,
         ageBand,
@@ -395,8 +430,10 @@ export function VentureApp() {
     setInput("");
     setItems((prev) => [...prev, { kind: "message", id: uid(), role: "user", content: text }]);
 
-    const stage = activeQuestion ? Math.min(5, attemptLevel + 1) : 1;
-    if (!activeQuestion) setActiveQuestion(text);
+    const lastAssistant = [...history].reverse().find((m) => m.role === "assistant")?.content || null;
+    const reset = shouldResetHintLadder(text, activeQuestion, lastAssistant);
+    const stage = reset ? 1 : Math.min(5, attemptLevel + 1);
+    if (reset) setActiveQuestion(text);
     setAttemptLevel(stage);
 
     const nextHistory: ChatTurn[] = [...history, { role: "user", content: text }];
@@ -519,7 +556,7 @@ export function VentureApp() {
       .map((id) => CATEGORIES.find((c) => c.id === id)?.label.replace(" Explorer", ""))
       .filter(Boolean);
 
-    const quizSystemPrompt = `You generate quiz questions for a kids' educational app called Venture 1. Create exactly 4 fun, age-appropriate multiple-choice questions for kids aged 6-14, medium difficulty, focused on ${quizTopic === "mixed" ? "a mix of science, nature, space, history, math, arts, and technology" : quizTopic}.${
+    const quizSystemPrompt = `Create exactly 4 fun, accurate, age-appropriate multiple-choice questions for kids, focused on ${quizTopic === "mixed" ? "a mix of science, nature, space, history, geography, math, languages, arts, music, sports, technology, culture, and how things work" : quizTopic}. Medium difficulty. Do not invent disputed trivia.${
       topicHints.length
         ? ` The child has shown interest in: ${topicHints.join(", ")}. Naturally include at least 2 questions touching those topics.`
         : ""
@@ -532,8 +569,7 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1200,
+          max_tokens: 1600,
           system: quizSystemPrompt,
           messages: [{ role: "user", content: "Generate the quiz now." }],
           ageBand,
@@ -674,7 +710,7 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
         id: "welcome",
         role: "assistant",
         content:
-          "Fresh map! I'm Venture 1 🧭 What do you want to explore next?",
+          "Fresh map! I'm Venture 1 🧭 Science, maps, music, sports, languages, history — what do you want to explore next?",
       },
     ]);
     setHistory([]);
@@ -874,7 +910,7 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
 
           <div className="adventure-card">
             <h3>🗺️ Guided adventures</h3>
-            <p>Multi-step quests that teach through questions.</p>
+            <p>Multi-step quests across space, oceans, math, maps, and machines.</p>
             <div className="toolbar">
               {ADVENTURES.map((a) => (
                 <button
@@ -1083,8 +1119,8 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
-              placeholder="What do you want to explore today?"
-              maxLength={300}
+              placeholder="Ask about science, maps, music, sports, languages..."
+              maxLength={500}
               disabled={busy}
               autoComplete="off"
             />
@@ -1106,7 +1142,7 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
           </form>
           <div className="voice-status">{voiceStatus}</div>
           <div className="footnote">
-            Venture 1 asks questions to help you think — it won&apos;t just hand you the answer!
+            Venture 1 explains clearly, remembers the conversation, and uses a hint ladder for practice problems.
           </div>
         </section>
       </div>
@@ -1133,8 +1169,8 @@ Respond with ONLY raw valid JSON, no markdown formatting, no code fences, no ext
               <li>Daily challenge today: {dailyDone ? "done" : "not yet"}</li>
             </ul>
             <p>
-              Venture 1 uses a hint ladder so answers aren&apos;t handed over immediately. Chat stays
-              on this device (browser storage) unless you clear it.
+              Venture 1 explains curiosity questions clearly, uses a hint ladder for practice problems, and stays
+              family-safe. Chat stays on this device (browser storage) unless you clear it.
             </p>
             <div className="modal-actions">
               <button type="button" className="tool-btn" onClick={() => setShowParent(false)}>
