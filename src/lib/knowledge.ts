@@ -47,6 +47,22 @@ const C: KnowledgeCard[] = [
     },
   },
   {
+    id: "sunset",
+    topic: "science",
+    keywords: ["sunset", "sunrise", "red sky", "orange sky", "dusk", "dawn"],
+    title: "Why sunsets look red and orange",
+    facts: {
+      little: "At sunset, sunlight travels through more air. A lot of the blue light gets bounced away, so more red and orange reach your eyes.",
+      explorer: "Near sunset, sunlight takes a longer path through the air. Blue light is scattered out of that path even more, so the leftover light looks red and orange. Dust or smoke can make the red even deeper.",
+      teen: "At sunrise and sunset the Sun's light takes a long slant path through the atmosphere. Short wavelengths scatter out of the direct beam (Rayleigh, plus some Mie from haze), so the transmitted light looks redder. Extra aerosols can deepen the color.",
+    },
+    followUp: {
+      little: "Would a dusty or smoky day make the sunset look paler or more red?",
+      explorer: "How is this the same idea as the blue daytime sky, just later in the day?",
+      teen: "Why can two sunsets in the same city look different after a wildfire versus after rain?",
+    },
+  },
+  {
     id: "rainbow",
     topic: "science",
     keywords: ["rainbow", "prism", "refract", "rain and sun"],

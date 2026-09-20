@@ -93,6 +93,20 @@ const QUIZ_BANK: QuizItem[] = [
     explanation: "The equator is an imaginary line around the middle of Earth. Places near it tend to be warmer.",
   },
   {
+    topic: "geography",
+    question: "Which ocean is the largest?",
+    options: ["Atlantic", "Indian", "Pacific", "Arctic"],
+    correctIndex: 2,
+    explanation: "The Pacific is the largest ocean, covering more of Earth than any other.",
+  },
+  {
+    topic: "geography",
+    question: "Why do some maps make Greenland look huge?",
+    options: ["Greenland grew", "Flat maps distort size", "It's bigger than Africa", "Ice makes it expand on paper"],
+    correctIndex: 1,
+    explanation: "Map projections flatten a round Earth, so some places look the wrong size — Greenland is a famous example.",
+  },
+  {
     topic: "math",
     question: "What is 7 × 6?",
     options: ["36", "42", "48", "56"],
@@ -190,20 +204,28 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 }
 
 export function buildDemoQuiz(topic = "mixed", seed = Date.now()): QuizQuestion[] {
-  const t = topic.toLowerCase();
-  const pool =
-    t === "mixed" || t === "all"
-      ? QUIZ_BANK
-      : QUIZ_BANK.filter((q) => q.topic === t || t.includes(q.topic) || q.topic.includes(t));
-  const source = pool.length >= 4 ? pool : QUIZ_BANK;
-  return seededShuffle(source, seed)
-    .slice(0, 4)
-    .map(({ question, options, correctIndex, explanation }) => ({
-      question,
-      options,
-      correctIndex,
-      explanation,
-    }));
+  const t = (topic || "mixed").toLowerCase().replace(/[^a-z-]+/g, " ").trim();
+  if (t === "mixed" || t === "all" || !t) {
+    return seededShuffle(QUIZ_BANK, seed)
+      .slice(0, 4)
+      .map(({ question, options, correctIndex, explanation }) => ({
+        question,
+        options,
+        correctIndex,
+        explanation,
+      }));
+  }
+  const preferred = QUIZ_BANK.filter(
+    (q) => q.topic === t || t.includes(q.topic) || q.topic.includes(t),
+  );
+  const rest = QUIZ_BANK.filter((q) => !preferred.includes(q));
+  const source = [...seededShuffle(preferred, seed), ...seededShuffle(rest, seed + 17)];
+  return source.slice(0, 4).map(({ question, options, correctIndex, explanation }) => ({
+    question,
+    options,
+    correctIndex,
+    explanation,
+  }));
 }
 
 export function demoQuizJson(topic?: string, seed?: number): string {

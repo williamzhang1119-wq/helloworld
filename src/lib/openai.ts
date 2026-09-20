@@ -40,6 +40,7 @@ type GenOptions = {
   questionKind?: Parameters<typeof buildSystemPrompt>[0]["questionKind"];
   groundingNotes?: string;
   conversationRecap?: string;
+  quiz?: boolean;
 };
 
 async function chatWithAnthropic(options: {
@@ -164,13 +165,15 @@ export async function generateReply(
 
   const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content || "";
   const isQuiz =
-    system.toLowerCase().includes("quiz") ||
-    lastUser.toLowerCase().includes("generate the quiz");
+    options.quiz === true || lastUser.toLowerCase().includes("generate the quiz");
   const topicMatch =
-    system.match(/focused on ([^.]+)/i) || system.match(/interest in: ([^.]+)/i);
+    system.match(/focused on ([a-z][a-z\s&-]{1,40})/i) || system.match(/interest in: ([^.]+)/i);
+  const topicRaw = (topicMatch?.[1] || "mixed").toLowerCase().trim();
+  const topic =
+    topicRaw.startsWith("a mix") || topicRaw.includes("mix of") ? "mixed" : topicRaw.split(/[,.]/)[0]!.trim();
   return {
     text: isQuiz
-      ? demoQuizJson(topicMatch?.[1], hashSeed(lastUser + system))
+      ? demoQuizJson(topic, hashSeed(lastUser + system))
       : composeDemoReply(lastUser, {
           attemptLevel: options.attemptLevel || 1,
           ageBand: options.ageBand || "explorer",

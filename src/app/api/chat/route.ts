@@ -171,9 +171,13 @@ export async function POST(req: Request) {
 
   const customSystem =
     typeof body.system === "string" && body.system.trim() ? body.system.slice(0, 12000) : "";
-  const isQuizPrompt = /quiz/i.test(customSystem);
+  const isQuizPrompt =
+    /multiple-choice/i.test(customSystem) ||
+    /create exactly \d/i.test(customSystem) ||
+    /generate the quiz/i.test(userText) ||
+    /raw valid json/i.test(customSystem);
   const system = isQuizPrompt
-    ? `${QUIZ_SAFETY_PREAMBLE}\nAge band: ${ageBand || "explorer"}.\n${customSystem}`
+    ? `${QUIZ_SAFETY_PREAMBLE}\nAge band: ${ageBand || "explorer"}.\n${customSystem || "Create 4 kid-safe multiple-choice questions."}`
     : buildSystemPrompt({
         ageBand,
         attemptLevel,
@@ -193,6 +197,7 @@ export async function POST(req: Request) {
     questionKind,
     groundingNotes,
     conversationRecap,
+    quiz: isQuizPrompt,
   };
 
   const wantStream =

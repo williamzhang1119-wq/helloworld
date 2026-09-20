@@ -11,7 +11,7 @@ import { composeDemoReply } from "./demoTutor";
 import { buildSystemPrompt, AGE_BANDS } from "./prompts";
 import { buildDemoQuiz } from "./quizBank";
 import { sanitizeUserMessage } from "./safety";
-import { resolveAnthropicModel, resolveOpenAIModel } from "./openai";
+import { resolveAnthropicModel, resolveOpenAIModel, generateReply } from "./openai";
 
 describe("knowledge retrieval", () => {
   it("grounds common curiosity questions across subjects", () => {
@@ -99,7 +99,8 @@ describe("demo tutor", () => {
         { role: "assistant", content: "Air scatters blue light more than red." },
       ],
     });
-    assert.match(reply.toLowerCase(), /blue|red|scatter|sunset/);
+    assert.match(reply.toLowerCase(), /sunset|red|orange/);
+    assert.doesNotMatch(reply, /Why might sunsets look red or orange if daytime skies look blue\?$/);
   });
 });
 
@@ -123,6 +124,10 @@ describe("prompt + quiz + safety", () => {
       assert.equal(q.options.length, 4);
       assert.ok(q.correctIndex >= 0 && q.correctIndex < 4);
     }
+    const geoHits = quiz.filter((q) =>
+      /equator|continent|ocean|map|greenland/i.test(`${q.question} ${q.explanation}`),
+    );
+    assert.ok(geoHits.length >= 2, "geography quizzes should lead with geography facts");
   });
 
   it("still refuses unsafe user text", () => {
@@ -134,5 +139,28 @@ describe("prompt + quiz + safety", () => {
   it("resolves models from server defaults, not a client id", () => {
     assert.equal(resolveAnthropicModel(), "claude-sonnet-4-6");
     assert.equal(resolveOpenAIModel(), "gpt-4o-mini");
+  });
+
+  it("demo chat explains instead of dumping quiz JSON", async () => {
+    const result = await generateReply({
+      messages: [{ role: "user", content: "Why is the sky blue?" }],
+      ageBand: "explorer",
+    });
+    assert.equal(result.provider, "demo");
+    assert.doesNotMatch(result.text, /^\s*\[/);
+    assert.match(result.text.toLowerCase(), /blue/);
+  });
+
+  it("demo quiz mode still returns JSON questions", async () => {
+    const result = await generateReply({
+      quiz: true,
+      system: "Create exactly 4 fun, accurate questions focused on geography.",
+      messages: [{ role: "user", content: "Generate the quiz now." }],
+    });
+    const parsed = JSON.parse(result.text) as Array<{ question: string }>;
+    assert.equal(parsed.length, 4);
+    assert.ok(parsed[0].question.length > 8);
+    const blob = parsed.map((q) => q.question).join(" ");
+    assert.match(blob, /equator|continent|ocean|map|greenland/i);
   });
 });

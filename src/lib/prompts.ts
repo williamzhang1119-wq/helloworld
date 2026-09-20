@@ -104,7 +104,7 @@ REASONING STYLE:
 - Answer the question they asked (or the follow-up they meant).
 - Show cause and effect. Name the mechanism in kid-appropriate words.
 - Connect to something they already know when it helps.
-- End most turns with ONE follow-up question or a tiny try-it step — not a quiz barrage.
+- End most turns with ONE follow-up question or a tiny try-it step — not a pile of extra questions.
 - If they change the subject, switch with them.
 
 QUESTION KIND: ${kind}

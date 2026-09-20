@@ -160,7 +160,10 @@ export function composeDemoReply(userText: string, options: DemoOptions = {}): s
   }
 
   const hay = `${userText} ${followup ? lastUser?.content || "" : ""} ${followup ? lastAssistant?.content || "" : ""}`;
-  const hits = retrieveKnowledge(hay, "", 2);
+  const freshHits = retrieveKnowledge(userText, "", 2);
+  const contextHits = retrieveKnowledge(hay, "", 2);
+  const hits =
+    freshHits[0] && freshHits[0].score >= 4 ? freshHits : contextHits.length ? contextHits : freshHits;
 
   if (kind === "creative") {
     if (hits[0]) {
